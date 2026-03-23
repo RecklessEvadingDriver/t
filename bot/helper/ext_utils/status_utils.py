@@ -260,10 +260,10 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
             tstatus = task.status()
 
         # Enhanced task header with better formatting
-        msg += f"╭─────────────────────────────╮\n"
+        msg += "╭─────────────────────────────╮\n"
         msg += f"│ <b>📁 Task #{index + start_position}</b>\n"
         msg += f"│ <code>{escape(f'{task.name()}')}</code>\n"
-        msg += f"╰─────────────────────────────╯\n"
+        msg += "╰─────────────────────────────╯\n"
 
         if task.listener.subname:
             msg += f"📂 <b>Sub-file:</b> <i>{task.listener.subname}</i>\n"
@@ -282,7 +282,7 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
         ):
             progress = task.progress()
             # Enhanced progress display with metadata
-            msg += f"\n📊 <b>Progress:</b>\n"
+            msg += "\n📊 <b>Progress:</b>\n"
             msg += f"{get_progress_bar_string(progress)} <code>{progress}</code>\n\n"
 
             if task.listener.subname:
@@ -435,5 +435,5 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
     msg += f"💾 <b>RAM:</b> <code>{virtual_memory().percent}%</code>\n"
     msg += f"💿 <b>Disk Free:</b> <code>{get_readable_file_size(disk_usage(DOWNLOAD_DIR).free)}</code> (<code>{round(100 - disk_usage(DOWNLOAD_DIR).percent, 1)}%</code>)\n"
     msg += f"⏰ <b>Uptime:</b> <code>{get_readable_time(time() - bot_start_time)}</code>\n"
-    msg += f"\n<i>Powered by <code><b>AB BOTS</b></code> 🚀</i>"
+    msg += "\n<i>Powered by <code><b>AB BOTS</b></code> 🚀</i>"
     return msg, button

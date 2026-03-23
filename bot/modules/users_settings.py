@@ -1560,7 +1560,7 @@ async def edit_user_settings(client, query):
         buttons.data_button("Back", f"userset {user_id} back uphoster", "footer")
         buttons.data_button("Close", f"userset {user_id} close", "footer")
 
-        text = f"""⌬ <b>Select Uphoster Destinations :</b>"""
+        text = """⌬ <b>Select Uphoster Destinations :</b>"""
         await edit_message(message, text, buttons.build_menu(1))
     elif data[2] == "menu":
         await query.answer()

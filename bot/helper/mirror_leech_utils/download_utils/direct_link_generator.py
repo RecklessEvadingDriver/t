@@ -8,7 +8,7 @@ from re import findall, match, search
 from requests import Session, post, get, RequestException
 from requests.adapters import HTTPAdapter
 from time import sleep
-from urllib.parse import parse_qs, urlparse, quote
+from urllib.parse import parse_qs, urlparse, quote, unquote
 from urllib3.util.retry import Retry
 from uuid import uuid4
 from base64 import b64decode, b64encode
@@ -375,7 +375,7 @@ def debrid_link(url):
             if dl.get("expired", False):
                 continue
             item = {
-                "path": path.join(details["title"]),
+                "path": ospath.join(details["title"]),
                 "filename": dl["name"],
                 "url": dl["downloadUrl"],
             }

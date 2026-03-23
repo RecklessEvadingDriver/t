@@ -339,7 +339,7 @@ class TMVDirect(TaskListener):
                         # Merge GoFile headers with existing headers
                         if gofile_headers:
                             headers = f"{headers} {gofile_headers}".strip()
-                        LOGGER.info(f"GoFile link processed successfully")
+                        LOGGER.info("GoFile link processed successfully")
                     elif isinstance(processed_link, str):
                         self.link = processed_link
                         LOGGER.info(f"GoFile link processed: {self.link}")
