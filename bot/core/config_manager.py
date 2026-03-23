@@ -65,6 +65,8 @@ class Config:
     LEECH_DUMP_CHAT = ""
     LINKS_LOG_ID = ""
     MIRROR_LOG_ID = ""
+    MOVIES_CHANNEL = ""
+    SERIES_CHANNEL = ""
     CLEAN_LOG_MSG = False
     LEECH_PREFIX = ""
     LEECH_CAPTION = ""

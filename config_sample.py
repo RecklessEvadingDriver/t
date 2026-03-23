@@ -172,6 +172,10 @@ LEECH_DUMP_CHAT = ""
 LINKS_LOG_ID = ""
 MIRROR_LOG_ID = ""
 
+# Media Type Channels (auto-detect movies/series and store without duplicates)
+MOVIES_CHANNEL = ""   # Telegram channel ID/username for movies
+SERIES_CHANNEL = ""   # Telegram channel ID/username for TV series
+
 # qBittorrent/Aria2c
 TORRENT_TIMEOUT = 0
 BASE_URL = ""

@@ -32,6 +32,54 @@ def get_md5_hash(up_path):
         return md5_hash.hexdigest()
 
 
+# Patterns that clearly indicate a TV series/show episode
+_SERIES_PATTERNS = [
+    # SxxExx / S01E01 / s1e1  (most reliable indicator)
+    re.compile(r'\bS\d{1,2}[\s._-]?E\d{1,3}\b', re.IGNORECASE),
+    # Season x Episode x  (long form)
+    re.compile(r'\bSeason[\s._-]?\d{1,2}[\s._-]?Episode[\s._-]?\d{1,3}\b', re.IGNORECASE),
+    # NxNN format, e.g. 1x01
+    re.compile(r'\b\d{1,2}x\d{2,3}\b', re.IGNORECASE),
+    # Standalone episode number EP01 / Ep.01  – require it to stand alone
+    # (avoids matching words like "EPIC" or "COMPLETE")
+    re.compile(r'(?<![A-Za-z])EP\d{1,3}\b', re.IGNORECASE),
+]
+
+# Patterns that indicate a standalone movie
+_MOVIE_PATTERNS = [
+    # Year in common formats: (2023) or .2023. or [2023]
+    re.compile(r'[\(\[\.\s](?:19|20)\d{2}[\)\]\.\s]'),
+    # Common movie release tags
+    re.compile(
+        r'\b(?:BluRay|BDRip|BRRip|DVDRip|HDRip|WEBRip|WEB-DL|HDTV|4K|2160p|1080p|720p|480p)\b',
+        re.IGNORECASE,
+    ),
+]
+
+
+def detect_media_type(filename: str) -> str:
+    """Detect whether *filename* is a 'series', 'movie', or 'unknown'.
+
+    The detection is done purely on the file/folder name and is intentionally
+    conservative: a series match takes priority over a movie match.  Returns
+    one of the string literals ``'series'``, ``'movie'``, or ``'unknown'``.
+    """
+    # Strip leading path component if present
+    name = ospath.basename(filename)
+    # Remove extension for cleaner matching
+    name_no_ext = ospath.splitext(name)[0]
+
+    for pattern in _SERIES_PATTERNS:
+        if pattern.search(name_no_ext):
+            return "series"
+
+    for pattern in _MOVIE_PATTERNS:
+        if pattern.search(name_no_ext):
+            return "movie"
+
+    return "unknown"
+
+
 async def create_thumb(msg, _id=""):
     if not _id:
         _id = time()
