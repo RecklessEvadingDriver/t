@@ -231,5 +231,34 @@ class DbManager:
             return
         await self.db[name][TgClient.ID].drop()
 
+    # ------------------------------------------------------------------ #
+    #  Media store – duplicate detection for movie/series channels
+    # ------------------------------------------------------------------ #
+
+    async def is_media_stored(self, file_hash: str) -> bool:
+        """Return True if a file with *file_hash* was already stored in a
+        movie or series channel."""
+        if self._return:
+            return False
+        doc = await self.db.media_store[TgClient.ID].find_one({"_id": file_hash})
+        return doc is not None
+
+    async def store_media_file(self, file_hash: str, filename: str, media_type: str) -> None:
+        """Persist a record so that the same file is not forwarded twice."""
+        if self._return:
+            return
+        from datetime import datetime, timezone
+        await self.db.media_store[TgClient.ID].update_one(
+            {"_id": file_hash},
+            {
+                "$set": {
+                    "filename": filename,
+                    "media_type": media_type,
+                    "stored_at": datetime.now(timezone.utc),
+                }
+            },
+            upsert=True,
+        )
+
 
 database = DbManager()

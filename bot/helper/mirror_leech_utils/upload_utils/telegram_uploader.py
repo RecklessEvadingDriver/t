@@ -40,6 +40,7 @@ from ...ext_utils.user_shortener import user_short_url
 from ...telegram_helper.message_utils import send_message
 from ...ext_utils.media_utils import (
     get_audio_thumbnail,
+    detect_media_type,
     get_document_type,
     get_media_info,
     get_multiple_frames_thumbnail,
@@ -48,6 +49,7 @@ from ...ext_utils.media_utils import (
 )
 from ...telegram_helper.message_utils import delete_message, update_status_message
 from .... import task_dict, task_dict_lock
+from ...ext_utils.db_handler import database
 
 LOGGER = getLogger(__name__)
 
@@ -329,6 +331,64 @@ class TelegramUploader:
         except Exception as err:
             if not self._listener.is_cancelled:
                 LOGGER.error(f"Failed To Send in BotPM:\n{str(err)}")
+
+    async def _store_in_media_channel(self, file_path: str, file_name: str) -> None:
+        """Detect whether *file_name* is a movie or series and forward the
+        already-uploaded message to the appropriate configured channel.
+        Duplicates are tracked via an MD5 hash stored in the database."""
+        movies_channel = Config.MOVIES_CHANNEL
+        series_channel = Config.SERIES_CHANNEL
+        if not movies_channel and not series_channel:
+            return
+
+        media_type = detect_media_type(file_name)
+        if media_type == "unknown":
+            return
+
+        target_channel = movies_channel if media_type == "movie" else series_channel
+        if not target_channel:
+            return
+
+        # Normalise channel identifier: convert numeric strings to int so that
+        # Pyrogram resolves them as chat IDs.  Alphanumeric usernames (with or
+        # without a leading '@') are passed through as-is because Pyrogram
+        # accepts them natively.
+        if not isinstance(target_channel, int):
+            channel_str = str(target_channel).strip()
+            if channel_str.lstrip("-").isdigit():
+                target_channel = int(channel_str)
+            else:
+                target_channel = channel_str  # username, e.g. "@mychannel" or "mychannel"
+
+        # Duplicate check via MD5 hash
+        try:
+            file_hash = await sync_to_async(get_md5_hash, file_path)
+            if await database.is_media_stored(file_hash):
+                LOGGER.info(
+                    f"Skipping duplicate {media_type}: {file_name} (hash={file_hash})"
+                )
+                return
+        except Exception as e:
+            LOGGER.warning(f"Could not compute hash for duplicate check: {e}")
+            file_hash = None
+
+        try:
+            await TgClient.bot.copy_message(
+                chat_id=target_channel,
+                from_chat_id=self._sent_msg.chat.id,
+                message_id=self._sent_msg.id,
+                reply_to_message_id=None,
+            )
+            LOGGER.info(
+                f"Stored {media_type} '{file_name}' in channel {target_channel}"
+            )
+            # Persist hash so the same file is not re-sent
+            if file_hash:
+                await database.store_media_file(file_hash, file_name, media_type)
+        except Exception as e:
+            LOGGER.error(
+                f"Failed to store {media_type} '{file_name}' in channel {target_channel}: {e}"
+            )
 
     async def upload(self):
         await self._user_settings()
@@ -627,6 +687,8 @@ class TelegramUploader:
                                 self._listener.user_id,
                                 f"Failed to forward to {self._listener.leech_dest}\n{e}",
                             )
+                # Auto-detect movie/series and store in the appropriate channel
+                await self._store_in_media_channel(o_path, file)
 
             if (
                 self._thumb is None
