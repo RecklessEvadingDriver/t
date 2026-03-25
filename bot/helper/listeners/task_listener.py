@@ -9,6 +9,7 @@ from aiofiles.os import listdir, remove, path as aiopath
 from requests import utils as rutils
 
 from ... import (
+    bot_loop,
     intervals,
     task_dict,
     task_dict_lock,
@@ -77,6 +78,7 @@ from ..mirror_leech_utils.upload_utils.devuploads_batch_uploader import (
 from ..mirror_leech_utils.youtube_utils.youtube_upload import YouTubeUpload
 from ..telegram_helper.button_build import ButtonMaker
 from ..telegram_helper.message_utils import (
+    auto_delete_message,
     delete_message,
     delete_status,
     send_message,
@@ -723,6 +725,13 @@ class TaskListener(TaskConfig):
 
         if self.pm_msg and (not Config.DELETE_LINKS or Config.CLEAN_LOG_MSG):
             await delete_message(self.pm_msg)
+
+        # Auto-delete original command message after configured delay
+        auto_delete_secs = Config.AUTO_DELETE_TASK_MSG
+        if auto_delete_secs and auto_delete_secs > 0 and self.is_super_chat:
+            bot_loop.create_task(
+                auto_delete_message(self.message, stime=auto_delete_secs)
+            )
 
         await clean_download(self.dir)
         async with task_dict_lock:

@@ -16,6 +16,7 @@ class Config:
     DATABASE_URL = ""
     DEFAULT_UPLOAD = "rc"
     DELETE_LINKS = False
+    AUTO_DELETE_TASK_MSG = 300
     DEBRID_LINK_API = ""
     DISABLE_TORRENTS = False
     DISABLE_LEECH = False
@@ -112,6 +113,10 @@ class Config:
     TIMEZONE = "Asia/Kolkata"
     USER_MAX_TASKS = 0
     USER_TIME_INTERVAL = 0
+    USER_DEFAULT_TIER = "free"
+    FREE_DAILY_QUOTA = 0
+    PREMIUM_DAILY_QUOTA = 0
+    VIP_DAILY_QUOTA = 0
     UPLOAD_PATHS = {}
     UPSTREAM_REPO = ""
     UPSTREAM_BRANCH = "master"

@@ -371,6 +371,30 @@ def add_handlers():
     )
     TgClient.bot.add_handler(
         MessageHandler(
+            set_tier,
+            filters=command(BotCommands.SetTierCommand, case_sensitive=True)
+            & CustomFilters.sudo,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            my_quota,
+            filters=command(BotCommands.MyQuotaCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
+            task_control_cmd,
+            filters=command(BotCommands.TaskCtlCommand, case_sensitive=True)
+            & CustomFilters.authorized,
+        )
+    )
+    TgClient.bot.add_handler(
+        CallbackQueryHandler(task_control_cb, filters=regex("^taskctl"))
+    )
+    TgClient.bot.add_handler(
+        MessageHandler(
             ytdl,
             filters=command(BotCommands.YtdlCommand, case_sensitive=True)
             & CustomFilters.authorized,

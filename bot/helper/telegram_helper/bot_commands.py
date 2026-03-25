@@ -53,6 +53,9 @@ class BotCommands:
         "Select": ["select", "sel"],
         "NzbSearch": ["nzbsearch", "ns"],
         "Plugins": "plugins",
+        "SetTier": ["settier", "st_tier"],
+        "MyQuota": "myquota",
+        "TaskCtl": "taskctl",
     }
 
     @classmethod

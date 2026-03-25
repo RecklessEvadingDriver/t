@@ -361,6 +361,7 @@ async def get_user_settings(from_user, stype="main"):
         buttons.data_button("Leech Settings", f"userset {user_id} leech")
         buttons.data_button("Uphoster Settings", f"userset {user_id} uphoster")
         buttons.data_button("FF Media Settings", f"userset {user_id} ffset")
+        buttons.data_button("🎨 Theme Settings", f"userset {user_id} theme")
         buttons.data_button(
             "Mics Settings", f"userset {user_id} advanced", position="l_body"
         )
@@ -1133,6 +1134,36 @@ async def get_user_settings(from_user, stype="main"):
 ┠ <b>YT Category ID</b> → <code>{escape(str(yt_cat_id_val))}</code>
 ┖ <b>YT Privacy Status</b> → <code>{escape(str(yt_privacy_val))}</code>"""
 
+    elif stype == "theme":
+        from ..helper.ext_utils.status_utils import PROGRESS_STYLES
+
+        current_style = user_dict.get("PROGRESS_STYLE", "default")
+        style_previews = {
+            "default": "[⬤⬤⬤⬤⬤◑○○○○○○]",
+            "blocky": "█████░░░░░",
+            "minimal": "■■■■■□□□□□",
+            "emoji": "🟢🟢🟢🟢🟢⚪️⚪️⚪️⚪️⚪️",
+        }
+        for style_name in PROGRESS_STYLES:
+            marker = "✅ " if style_name == current_style else ""
+            buttons.data_button(
+                f"{marker}{style_name.capitalize()}",
+                f"userset {user_id} progress_style {style_name}",
+            )
+
+        buttons.data_button("Back", f"userset {user_id} back", "footer")
+        buttons.data_button("Close", f"userset {user_id} close", "footer")
+        btns = buttons.build_menu(2)
+
+        preview = style_previews.get(current_style, "")
+        text = f"""⌬ <b>🎨 Theme Settings :</b>
+┟ <b>Name</b> → {user_name}
+┃
+┠ <b>Progress Bar Style</b> → <b>{current_style.capitalize()}</b>
+┖ <b>Preview</b> → <code>{preview} 50%</code>
+
+<i>Choose your preferred progress bar style shown in task status messages.</i>"""
+
     return text, btns
 
 
@@ -1517,12 +1548,23 @@ async def edit_user_settings(client, query):
         "advanced",
         "gdrive",
         "rclone",
+        "theme",
     ]:
         await query.answer()
         await update_user_settings(query, data[2])
     elif data[2] == "yttools":
         await query.answer()
         await update_user_settings(query, data[2])
+    elif data[2] == "progress_style":
+        from ..helper.ext_utils.status_utils import PROGRESS_STYLES
+
+        style = data[3] if len(data) > 3 else "default"
+        if style not in PROGRESS_STYLES:
+            return await query.answer("Invalid style!", show_alert=True)
+        update_user_ldata(user_id, "PROGRESS_STYLE", style)
+        await database.update_user_data(user_id)
+        await query.answer(f"Progress bar style set to: {style.capitalize()}", show_alert=True)
+        await update_user_settings(query, "theme")
     elif data[2] == "uphoster_destinations":
         await query.answer()
         user_dict = user_data.get(user_id, {})

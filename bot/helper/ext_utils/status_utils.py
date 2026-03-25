@@ -16,6 +16,7 @@ from ... import (
 )
 from ...core.config_manager import Config
 from ..telegram_helper.button_build import ButtonMaker
+from ... import user_data
 
 SIZE_UNITS = ["B", "KB", "MB", "GB", "TB", "PB"]
 
@@ -205,26 +206,63 @@ def speed_string_to_bytes(size_text: str):
     return size
 
 
-def get_progress_bar_string(pct):
+PROGRESS_STYLES = {
+    "default": {
+        "filled": "⬤",
+        "quarter": "◔",
+        "half": "◑",
+        "three_quarter": "◕",
+        "empty": "○",
+        "wrap": ("[", "]"),
+        "total": 12,
+        "fractional": True,
+    },
+    "blocky": {
+        "filled": "█",
+        "empty": "░",
+        "wrap": ("", ""),
+        "total": 10,
+        "fractional": False,
+    },
+    "minimal": {
+        "filled": "■",
+        "empty": "□",
+        "wrap": ("", ""),
+        "total": 10,
+        "fractional": False,
+    },
+    "emoji": {
+        "filled": "🟢",
+        "empty": "⚪️",
+        "wrap": ("", ""),
+        "total": 10,
+        "fractional": False,
+    },
+}
+
+
+def get_progress_bar_string(pct, style="default"):
     pct = float(str(pct).strip("%"))
     p = min(max(pct, 0), 100)
-    total_blocks = 12
+    cfg = PROGRESS_STYLES.get(style, PROGRESS_STYLES["default"])
+    total_blocks = cfg["total"]
     filled_blocks = int(p / (100 / total_blocks))
-    p_str = ""
-    p_str += "⬤" * filled_blocks
-    remaining_pct = p % (100 / total_blocks)
-    if remaining_pct > 0 and filled_blocks < total_blocks:
-        if remaining_pct < (25 / total_blocks * 100):
-            p_str += "◔"
-            filled_blocks += 1
-        elif remaining_pct < (50 / total_blocks * 100):
-            p_str += "◑"
-            filled_blocks += 1
-        elif remaining_pct < (75 / total_blocks * 100):
-            p_str += "◕"
-            filled_blocks += 1
-    p_str += "○" * (total_blocks - filled_blocks)
-    return f"[{p_str}]"
+    p_str = cfg["filled"] * filled_blocks
+    if cfg.get("fractional", False):
+        remaining_pct = p % (100 / total_blocks)
+        if remaining_pct > 0 and filled_blocks < total_blocks:
+            if remaining_pct < (25 / total_blocks * 100):
+                p_str += cfg["quarter"]
+                filled_blocks += 1
+            elif remaining_pct < (50 / total_blocks * 100):
+                p_str += cfg["half"]
+                filled_blocks += 1
+            elif remaining_pct < (75 / total_blocks * 100):
+                p_str += cfg["three_quarter"]
+                filled_blocks += 1
+    p_str += cfg["empty"] * (total_blocks - filled_blocks)
+    lw, rw = cfg["wrap"]
+    return f"{lw}{p_str}{rw}"
 
 
 async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=1):
@@ -248,6 +286,8 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
     msg += "╔══════════════════════════════╗\n"
     msg += "║   <code><b>AB BOTS</b></code> - 𝐀𝐝𝐯𝐚𝐧𝐜𝐞𝐝 𝐁𝐨𝐭    ║\n"
     msg += "╚══════════════════════════════╝\n\n"
+
+    buttons = ButtonMaker()
 
     for index, task in enumerate(
         tasks[start_position : STATUS_LIMIT + start_position], start=1
@@ -281,9 +321,12 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
             and task.listener.progress
         ):
             progress = task.progress()
+            # Use per-user progress bar style
+            task_user_id = task.listener.user_id
+            progress_style = user_data.get(task_user_id, {}).get("PROGRESS_STYLE", "default")
             # Enhanced progress display with metadata
             msg += "\n📊 <b>Progress:</b>\n"
-            msg += f"{get_progress_bar_string(progress)} <code>{progress}</code>\n\n"
+            msg += f"{get_progress_bar_string(progress, progress_style)} <code>{progress}</code>\n\n"
 
             if task.listener.subname:
                 subsize = f" / {get_readable_file_size(task.listener.subsize)}"
@@ -324,7 +367,22 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
         msg += f"📤 <b>Upload Mode:</b> <code>{task.listener.mode[1]}</code>\n"
 
         from ..telegram_helper.bot_commands import BotCommands
-        msg += f"🛑 <b>Cancel:</b> <code>/{BotCommands.CancelTaskCommand[1]}_{task.gid()}</code>\n\n"
+        gid = task.gid()
+        can_pause = task.engine.startswith(("Aria2", "qBit"))
+        is_paused = tstatus == MirrorStatus.STATUS_PAUSED
+        if can_pause and not is_paused:
+            msg += f"⏸ <b>Pause:</b> <code>/taskctl pause {gid}</code>  "
+        elif can_pause and is_paused:
+            msg += f"▶️ <b>Resume:</b> <code>/taskctl resume {gid}</code>  "
+        msg += f"⏹ <b>Cancel:</b> <code>/{BotCommands.CancelTaskCommand[1]}_{gid}</code>\n\n"
+
+        # Inline action buttons for this task
+        task_num = index + start_position
+        buttons.data_button(f"⏹ {task_num}", f"taskctl cancel {gid} {task.listener.user_id}", position="footer")
+        if can_pause and not is_paused:
+            buttons.data_button(f"⏸ {task_num}", f"taskctl pause {gid} {task.listener.user_id}", position="footer")
+        elif can_pause and is_paused:
+            buttons.data_button(f"▶️ {task_num}", f"taskctl resume {gid} {task.listener.user_id}", position="footer")
 
     if len(msg) == 0:
         if status == "All":
@@ -410,7 +468,6 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
     msg += "│ <code><b>📊 BOT STATISTICS</b></code>          │\n"
     msg += "╰─────────────────────────────╯\n"
 
-    buttons = ButtonMaker()
     if not is_user:
         buttons.data_button("📊 TStats", f"status {sid} ov", position="header")
     if len(tasks) > STATUS_LIMIT:
