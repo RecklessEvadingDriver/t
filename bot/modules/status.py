@@ -8,6 +8,7 @@ from .. import (
     task_dict_lock,
     status_dict,
     task_dict,
+    user_data,
     bot_start_time,
     intervals,
     sabnzbd_client,
@@ -21,6 +22,7 @@ from ..helper.ext_utils.status_utils import (
     MirrorStatus,
     get_readable_file_size,
     get_readable_time,
+    get_task_by_gid,
     speed_string_to_bytes,
 )
 from ..helper.telegram_helper.bot_commands import BotCommands
@@ -237,3 +239,65 @@ async def status_pages(_, query):
         await query.answer()
     except QueryIdInvalid:
         pass
+
+
+@new_task
+async def task_action(_, query):
+    """Handle per-task inline keyboard actions: pause, resume, cancel."""
+    data = query.data.split()
+    # data[0] == "taskaction", data[1] == gid, data[2] == action
+    if len(data) < 3:
+        await query.answer("Invalid action!", show_alert=True)
+        return
+
+    gid = data[1]
+    action = data[2]
+    user_id = query.from_user.id
+
+    task = await get_task_by_gid(gid)
+    if task is None:
+        await query.answer("Task not found or already completed!", show_alert=True)
+        return
+
+    # Permission check: only task owner, sudo users, or owner can act
+    from ...core.config_manager import Config as _Cfg  # noqa: avoid circular at module level
+    is_owner = _Cfg.OWNER_ID == user_id
+    is_sudo = user_data.get(user_id, {}).get("SUDO", False)
+    is_task_owner = task.listener.user_id == user_id
+    if not (is_owner or is_sudo or is_task_owner):
+        await query.answer("This task is not yours!", show_alert=True)
+        return
+
+    if action == "cancel":
+        obj = task.task()
+        await query.answer("Cancelling task…", show_alert=False)
+        await obj.cancel_task()
+
+    elif action == "pause":
+        try:
+            if task.listener.is_qbit:
+                await TorrentManager.qbittorrent.torrents.stop([task.task().hash()])
+                await query.answer("Task paused.", show_alert=False)
+            elif task.listener.is_torrent:
+                await TorrentManager.aria2.pause(task.gid())
+                await query.answer("Task paused.", show_alert=False)
+            else:
+                await query.answer("Pause not supported for this task type.", show_alert=True)
+        except Exception as e:
+            await query.answer(f"Failed to pause: {e}", show_alert=True)
+
+    elif action == "resume":
+        try:
+            if task.listener.is_qbit:
+                await TorrentManager.qbittorrent.torrents.resume([task.task().hash()])
+                await query.answer("Task resumed.", show_alert=False)
+            elif task.listener.is_torrent:
+                await TorrentManager.aria2.resume(task.gid())
+                await query.answer("Task resumed.", show_alert=False)
+            else:
+                await query.answer("Resume not supported for this task type.", show_alert=True)
+        except Exception as e:
+            await query.answer(f"Failed to resume: {e}", show_alert=True)
+
+    else:
+        await query.answer("Unknown action!", show_alert=True)

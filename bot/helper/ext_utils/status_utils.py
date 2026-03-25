@@ -13,6 +13,7 @@ from ... import (
     task_dict,
     task_dict_lock,
     sabnzbd_client,
+    user_data,
 )
 from ...core.config_manager import Config
 from ..telegram_helper.button_build import ButtonMaker
@@ -205,13 +206,39 @@ def speed_string_to_bytes(size_text: str):
     return size
 
 
-def get_progress_bar_string(pct):
+def get_progress_bar_string(pct, style="default"):
+    """Return a progress bar string.
+
+    Supported styles:
+    - ``default`` – ⬤◔◑◕○ (original)
+    - ``blocky``  – █▒░
+    - ``minimal`` – ■□
+    - ``emoji``   – 🟢⚪️
+    """
     pct = float(str(pct).strip("%"))
     p = min(max(pct, 0), 100)
     total_blocks = 12
     filled_blocks = int(p / (100 / total_blocks))
-    p_str = ""
-    p_str += "⬤" * filled_blocks
+
+    if style == "blocky":
+        p_str = "█" * filled_blocks
+        remaining_pct = p % (100 / total_blocks)
+        if remaining_pct > 0 and filled_blocks < total_blocks:
+            p_str += "▒"
+            filled_blocks += 1
+        p_str += "░" * (total_blocks - filled_blocks)
+        return f"[{p_str}]"
+
+    if style == "minimal":
+        p_str = "■" * filled_blocks + "□" * (total_blocks - filled_blocks)
+        return f"[{p_str}]"
+
+    if style == "emoji":
+        p_str = "🟢" * filled_blocks + "⚪️" * (total_blocks - filled_blocks)
+        return p_str
+
+    # default style (original implementation)
+    p_str = "⬤" * filled_blocks
     remaining_pct = p % (100 / total_blocks)
     if remaining_pct > 0 and filled_blocks < total_blocks:
         if remaining_pct < (25 / total_blocks * 100):
@@ -241,6 +268,9 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
         status_dict[sid]["page_no"] = page_no
     elif page_no < 1:
         page_no = pages - (abs(page_no) % pages)
+
+    # Initialise ButtonMaker early so per-task action buttons can be added
+    buttons = ButtonMaker()
         status_dict[sid]["page_no"] = page_no
     start_position = (page_no - 1) * STATUS_LIMIT
 
@@ -258,6 +288,10 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
             tstatus = await task.status()
         else:
             tstatus = task.status()
+
+        # Determine progress bar style for this task's user
+        task_user_id = task.listener.user_id
+        pb_style = user_data.get(task_user_id, {}).get("PROGRESS_BAR_STYLE", "default")
 
         # Enhanced task header with better formatting
         msg += "╭─────────────────────────────╮\n"
@@ -283,7 +317,7 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
             progress = task.progress()
             # Enhanced progress display with metadata
             msg += "\n📊 <b>Progress:</b>\n"
-            msg += f"{get_progress_bar_string(progress)} <code>{progress}</code>\n\n"
+            msg += f"{get_progress_bar_string(progress, pb_style)} <code>{progress}</code>\n\n"
 
             if task.listener.subname:
                 subsize = f" / {get_readable_file_size(task.listener.subsize)}"
@@ -321,10 +355,19 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
         # Enhanced metadata section
         msg += f"\n🔧 <b>Engine:</b> <code>{task.engine}</code>\n"
         msg += f"📥 <b>Download Mode:</b> <code>{task.listener.mode[0]}</code>\n"
-        msg += f"📤 <b>Upload Mode:</b> <code>{task.listener.mode[1]}</code>\n"
+        msg += f"📤 <b>Upload Mode:</b> <code>{task.listener.mode[1]}</code>\n\n"
 
-        from ..telegram_helper.bot_commands import BotCommands
-        msg += f"🛑 <b>Cancel:</b> <code>/{BotCommands.CancelTaskCommand[1]}_{task.gid()}</code>\n\n"
+        # Inline action buttons per task
+        gid = task.gid()
+        is_pausable = tstatus in (
+            MirrorStatus.STATUS_DOWNLOAD,
+            MirrorStatus.STATUS_SEED,
+        ) and (task.listener.is_torrent or task.listener.is_qbit or task.listener.is_aria2 if hasattr(task.listener, "is_aria2") else False)
+        if tstatus == MirrorStatus.STATUS_PAUSED:
+            buttons.data_button("▶️ Resume", f"taskaction {gid} resume")
+        elif is_pausable:
+            buttons.data_button("⏸ Pause", f"taskaction {gid} pause")
+        buttons.data_button("⏹ Cancel", f"taskaction {gid} cancel")
 
     if len(msg) == 0:
         if status == "All":
@@ -410,7 +453,6 @@ async def get_readable_message(sid, is_user, page_no=1, status="All", page_step=
     msg += "│ <code><b>📊 BOT STATISTICS</b></code>          │\n"
     msg += "╰─────────────────────────────╯\n"
 
-    buttons = ButtonMaker()
     if not is_user:
         buttons.data_button("📊 TStats", f"status {sid} ov", position="header")
     if len(tasks) > STATUS_LIMIT:

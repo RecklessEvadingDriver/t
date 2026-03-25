@@ -724,6 +724,10 @@ class TaskListener(TaskConfig):
         if self.pm_msg and (not Config.DELETE_LINKS or Config.CLEAN_LOG_MSG):
             await delete_message(self.pm_msg)
 
+        # Auto-cleanup: delete original command message after task completion
+        if Config.AUTO_CLEANUP:
+            await delete_message(self.message)
+
         await clean_download(self.dir)
         async with task_dict_lock:
             if self.mid in task_dict:
