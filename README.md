@@ -162,6 +162,22 @@ The `heroku.yml` file is configured for easy Heroku deployment.
 
 Use the provided `captain-definition` file for CapRover deployment.
 
+### Koyeb Deployment
+
+[![Deploy to Koyeb](https://www.koyeb.com/static/images/deploy/button.svg)](https://app.koyeb.com/deploy?type=git&repository=github.com/RecklessEvadingDriver/t&branch=master&name=ab-bots&dockerfile=Dockerfile)
+
+The `koyeb.yaml` file is configured for easy Koyeb deployment.
+
+1. Click the **Deploy to Koyeb** button above, or use the [Koyeb CLI](https://www.koyeb.com/docs/cli/installation):
+```bash
+koyeb deploy --config koyeb.yaml
+```
+
+2. Set the required environment variables in the Koyeb dashboard:
+   - `BOT_TOKEN`, `OWNER_ID`, `TELEGRAM_API`, `TELEGRAM_HASH`, `DATABASE_URL`
+
+3. Optionally set `BASE_URL` to your Koyeb app URL (e.g., `https://ab-bots-yourname.koyeb.app`) and `BASE_URL_PORT` to `80`.
+
 
 ## 🎮 Bot Commands
 

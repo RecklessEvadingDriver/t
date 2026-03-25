@@ -1,0 +1,33 @@
+name: ab-bots
+services:
+  - name: bot
+    type: worker
+    dockerfile: Dockerfile
+    instance_types:
+      - type: nano
+    regions:
+      - fra
+    scaling:
+      min: 1
+      max: 1
+    env:
+      - key: BOT_TOKEN
+        value: ""
+      - key: OWNER_ID
+        value: ""
+      - key: TELEGRAM_API
+        value: ""
+      - key: TELEGRAM_HASH
+        value: ""
+      - key: DATABASE_URL
+        value: ""
+      - key: DEFAULT_LANG
+        value: "en"
+      - key: BASE_URL
+        value: ""
+      - key: BASE_URL_PORT
+        value: "80"
+      - key: UPSTREAM_REPO
+        value: ""
+      - key: UPSTREAM_BRANCH
+        value: "master"
